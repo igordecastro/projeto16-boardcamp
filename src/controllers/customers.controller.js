@@ -20,6 +20,18 @@ export async function findCustomers(req, res) {
     }
 }
 
+export async function findCustomerById(req, res) {
+    const { id } = req.params;
+
+    try{
+        const customer = await connection.query("SELECT * FROM customers WHERE id=$1", [id]);
+        res.send(customer.rows);
+
+    } catch(err) {
+        res.status(500).send(err.message)
+    }
+}
+
 export async function createCustomer(req, res) {
   const { name, phone, cpf, birthday } = res.locals.customer;
 
