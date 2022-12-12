@@ -1,7 +1,6 @@
 import Joi from "joi";
 
 export default async function validateRental(req, res, next) {
-    //const {customerId,gameId,rentDate,daysRented,returnDate,originalPrice,delayFee} = req.body;
 
     const rentalSchema = Joi.object({
         customerId: Joi.number().integer().required(),

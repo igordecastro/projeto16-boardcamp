@@ -1,14 +1,14 @@
 import connection from "../server.js";
 
+let today = new Date();
+let date = String(today.getDate()).padStart(2, "0");
+let month = String(today.getMonth() + 1).padStart(2, "0");
+let year = String(today.getFullYear());
+
+today = date + "-" + month + "-" + year;
+
 export async function createRental(req, res) {
     const { customerId, gameId, daysRented } = req.body;
-
-    let today = new Date();
-    let d = String(today.getDate()).padStart(2, "0");
-    let m = String(today.getMonth() + 1).padStart(2, "0");
-    let y = today.getFullYear();
-
-    today = m + "-" + d + "-" + y;
 
     try {
         const price = await connection.query(
@@ -72,18 +72,15 @@ export async function findRental(req, res) {
             );
 
             return res.send(filteredByCustomer);
-            
         } else if (gameId) {
             gameId = parseInt(gameId);
             const filteredByCustomer = rentalsResult.filter(
                 (rental) => rental.gameId === gameId
             );
             return res.send(filteredByCustomer);
-
         } else {
             res.send(rentalsResult);
         }
-
     } catch (err) {
         res.status(500).send(err.message);
     }
@@ -91,4 +88,56 @@ export async function findRental(req, res) {
 
 export async function deleteRental(req, res) {
     const { id } = req.params;
+
+    if (!id) {
+        return res.sendStatus(404);
+    }
+
+    try {
+        const rentalAlredyFinished = await connection.query(
+            "SELECT * FROM rentals WHERE id=$1;",
+            [id]
+        );
+
+        if (rentalAlredyFinished.rows[0].returnDate !== null) {
+            await connection.query("DELETE FROM rentals WHERE id=$1", [id]);
+            return res.sendStatus(200);
+        }
+
+        res.sendStatus(400);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+}
+
+export async function finishRental(req, res) {
+    const {id} = req.params;
+
+    try {
+        const rentalToBeFinished = await connection.query(
+            "SELECT * FROM rentals WHERE id=$1",
+            [id]
+        );
+
+        const day = rentalToBeFinished.rows[0].rentDate.getDate();
+
+        date = Number(date);
+        let delayFee = 0;
+
+        if (date >= day) {
+            const delayedDays = day - date;
+            delayFee =
+                (rentalToBeFinished.rows[0].originalPrice /
+                    rentalToBeFinished.rows[0].daysRented) *
+                delayedDays;
+        }
+
+        await connection.query(
+            'UPDATE rentals SET "returnDate"=$1, "delayFee"=$2 WHERE id=$3;',
+            [today, delayFee, id]
+        );
+        res.sendStatus(200);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 }
